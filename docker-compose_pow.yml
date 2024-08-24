@@ -1,0 +1,49 @@
+version: '3.7'
+services:
+  init-genesis:
+      hostname: init-genesis
+      env_file:
+        - .env
+      image: ethereum/client-go:v1.10.1
+      entrypoint: ["/bin/sh", "-c"]
+      command:
+        - |
+         rm -rf ~/.ethereum
+         rm -rf /root/chaindata
+         geth --datadir /root/chaindata init /root/genesis.json
+         rm -f ~/.ethereum/geth/nodekey 
+         echo ${ACCOUNT_PASSWORD} > /tmp/password 
+         geth account new --password /tmp/password 
+         echo "initialized success"
+      volumes:
+        - ./genesis.json:/root/genesis.json
+        - ./chaindata:/root/chaindata
+        - ./ethereum:/root/.ethereum
+
+  geth-bootnode:
+    hostname: geth-bootnode
+    env_file:
+      - .env
+    image: ethereum/client-go:v1.10.1
+    entrypoint: [geth]
+    volumes:
+      - ./chaindata:/root/chaindata
+      - ./ethereum:/root/.ethereum
+    command:
+      --nodekeyhex="b0ac22adcad37213c7c565810a50f1772291e7b0ce53fb73e7ec2a3c75bc13b5"
+      --nodiscover
+      --datadir /root/chaindata
+      --ipcdisable
+      --networkid=${NETWORK_ID}
+      --allow-insecure-unlock
+      --http
+      --http.addr="0.0.0.0"
+      --http.api="eth,web3,net,admin,personal"
+      --http.corsdomain="*"
+      --mine
+      --miner.etherbase=${ACCOUNT_ADDRESS}
+      --miner.threads=1
+    ports:
+      - "8545:8545"
+    depends_on: 
+      - init-genesis
